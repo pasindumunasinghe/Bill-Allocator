@@ -43,7 +43,7 @@ def process_file(f: BillFile) -> BillFile:
 
     f.read_attempts = result.attempts
     f.extraction_method = result.method
-    f.text_excerpt = result.text[:4000]
+    f.text_excerpt = result.text[:20000]
     bill = parse_bill(result.text)
     out = evaluate(bill)
 

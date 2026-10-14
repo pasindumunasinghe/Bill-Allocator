@@ -19,7 +19,7 @@ AMOUNT = r"\(?-?\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\)?"
 CURRENCY = r"(?:[A-Z]{3}|Rs\.?|Rs|Dhs?\.?|[$€£₹])"
 AMOUNT_AFTER_LABEL = rf"\s*(?:\((?:{CURRENCY})\)\s*)?[:=\-]?\s*(?:{CURRENCY}\.?\s*)?(?P<amt>{AMOUNT})(?!\s*%)(?![\d/])"
 
-TOTAL_LABEL = re.compile(r"Total\s+Charges\s+for\s+(?:the\s+)?Bill(?:ing)?\s+Period", re.I)
+TOTAL_LABEL = re.compile(r"Total\s*Charges?\s*for\s*(?:the\s*|this\s*)?Bill(?:ing)?\s*Period", re.I)
 VAT_LABEL = re.compile(
     r"(?<![A-Za-z])(?:Total\s+)?VAT(?:\s+Amount)?(?:\s*\(?\s*@?\s*\d+(?:\.\d+)?\s*%\s*\)?)?", re.I
 )
@@ -120,6 +120,22 @@ def parse_period(start: str, end: str) -> tuple[date | None, date | None]:
     return None, None
 
 
+def _resolve_vat_breakdown(values: list[Decimal], bill: "ParsedBill") -> list[Decimal]:
+    """Bills often show VAT per line/subscription plus a VAT total. If exactly one value equals the
+    sum of all the others, it is the total and is used; otherwise values are left as-is (ambiguous)."""
+    distinct = list(dict.fromkeys(values))
+    if len(distinct) < 3:
+        return distinct
+    for v in distinct:
+        rest = list(values)
+        rest.remove(v)
+        rest = [r for r in rest if r != v]
+        if rest and sum(rest) == v:
+            bill.notes.append(f"VAT total {v} = sum of VAT lines ({' + '.join(map(str, rest))})")
+            return [v]
+    return distinct
+
+
 def parse_date(raw: str, numeric_formats=DMY) -> date | None:
     raw = raw.strip().replace(",", " ")
     for fmt in numeric_formats:
@@ -189,8 +205,12 @@ def parse_bill(text: str) -> ParsedBill:
     else:
         bill.issues.append("Bill Month not found")
 
-    bill.total_charges = _single(_amount_for_label(lines, TOTAL_LABEL), "Total Charges for Bill Period", bill)
-    bill.vat = _single(_amount_for_label(lines, VAT_LABEL, VAT_REJECT), "VAT", bill)
+    totals = _amount_for_label(lines, TOTAL_LABEL)
+    if not totals:  # label wrapped onto two lines in the PDF, e.g. "Total Charges for" / "Bill Period 1,704.29"
+        joined = [f"{a} {b}" for a, b in zip(lines, lines[1:]) if a and not TOTAL_LABEL.search(a)]
+        totals = _amount_for_label(joined, TOTAL_LABEL)
+    bill.total_charges = _single(totals, "Total Charges for Bill Period", bill)
+    bill.vat = _single(_resolve_vat_breakdown(_amount_for_label(lines, VAT_LABEL, VAT_REJECT), bill), "VAT", bill)
 
     ccs = [m.group("v").upper() for ln in lines for m in COST_CENTER_LABEL.finditer(ln)]
     if ccs:

@@ -136,6 +136,15 @@ def process_one(file_id: str, db: Session = Depends(get_db)):
     return file_dto(f)
 
 
+@app.get("/api/files/{file_id}/text")
+def file_text(file_id: str, db: Session = Depends(get_db)):
+    """Raw text the extractor read from the bill (first 20,000 chars), for diagnosing Needs Review."""
+    f = db.get(BillFile, file_id)
+    if not f:
+        raise HTTPException(404, "File not found")
+    return {"file_name": f.file_name, "method": f.extraction_method, "text": f.text_excerpt or ""}
+
+
 @app.post("/api/batches/{batch_id}/process")
 def process_batch(batch_id: str, db: Session = Depends(get_db)):
     b = _batch(db, batch_id)

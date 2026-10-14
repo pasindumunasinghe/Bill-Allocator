@@ -77,3 +77,22 @@ def test_us_month_first_bill_period():
     b, o = run(c="72263692", t="525.00", v="25.00",
                text=BASE.format(c="72263692", t="525.00", v="25.00").replace("01/09/2026 - 30/09/2026", "08/01/2026 - 08/31/2026"))
     assert b.bill_month == "August 2026" and o.status == S.PROCESSED
+
+
+def test_vat_total_with_breakdown_lines():
+    text = BASE.format(c="DBN0103018", t="2,593.46", v="395.60") + "VAT 113.03\nVAT 282.57\n"
+    b, o = run(text=text)
+    assert b.vat == Decimal("395.60") and o.status == S.PROCESSED
+
+
+def test_vat_breakdown_not_summing_stays_ambiguous():
+    b, o = run(text=BASE.format(c="DBN0103018", t="2,593.46", v="395.60") + "VAT 100.00\nVAT 200.00\n")
+    assert b.vat is None and o.status == S.NEEDS_REVIEW
+
+
+def test_total_label_variants():
+    for label in ["TotalChargesforBillPeriod", "Total Charges for the Bill Period", "Total charge for this billing period"]:
+        b, _ = run(text=BASE.format(c="72263692", t="1", v="25.00").replace("Total Charges for Bill Period AED 1", f"{label} 525.00"))
+        assert b.total_charges == Decimal("525.00"), label
+    b, _ = run(text=BASE.format(c="72263692", t="1", v="25.00").replace("Total Charges for Bill Period AED 1", "Total Charges for\nBill Period 525.00"))
+    assert b.total_charges == Decimal("525.00")

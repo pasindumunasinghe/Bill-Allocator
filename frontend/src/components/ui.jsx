@@ -1,5 +1,6 @@
 import React from 'react'
 import { STATUS } from '../format.js'
+import { api } from '../api.js'
 
 const tone = {
   [STATUS.OK]: 'ok', [STATUS.QUEUED]: 'neutral', [STATUS.PROCESSING]: 'info',
@@ -79,11 +80,32 @@ export function useFilter(files) {
   return { rows, props: { search, setSearch, status, setStatus, group, setGroup, statuses: Object.values(STATUS) } }
 }
 
+function TextViewer({ file }) {
+  const [data, setData] = React.useState(null)
+  if (!file.extraction_method) return null
+  return (
+    <>
+      <button className="link sm" onClick={() => api.fileText(file.id).then(setData).catch(e => setData({ text: e.message }))}>View extracted text</button>
+      {data && (
+        <div className="modal-scrim" onClick={() => setData(null)}>
+          <div className="modal card" onClick={e => e.stopPropagation()}>
+            <header className="panel-head"><h2>{file.file_name} — text read by the app ({data.method})</h2>
+              <button className="btn sm" onClick={() => navigator.clipboard?.writeText(data.text)}>Copy</button>
+              <button className="btn sm" onClick={() => setData(null)}>Close</button></header>
+            <pre className="extracted">{data.text || '(no text)'}</pre>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 export function ErrorList({ file }) {
   const items = [...(file.errors || [])]
   if (!items.length && !file.notes?.length) return <span className="dim">—</span>
   return (
     <div className="errs">
+      {file.status !== STATUS.OK && <TextViewer file={file} />}
       {items.map((e, i) => <div key={i} className="err">{e}</div>)}
       {(file.notes || []).map((n, i) => <div key={'n' + i} className="note">{n}</div>)}
     </div>

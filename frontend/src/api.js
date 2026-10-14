@@ -21,6 +21,7 @@ export const api = {
     for (const f of files) fd.append('files', f)
     return request(`/api/batches/${id}/files`, { method: 'POST', body: fd }).then(r => r.json())
   },
+  fileText: fileId => request(`/api/files/${fileId}/text`).then(r => r.json()),
   processFile: fileId => request(`/api/files/${fileId}/process`, { method: 'POST' }).then(r => r.json()),
   clearQueue: id => request(`/api/batches/${id}/queue`, { method: 'DELETE' }).then(r => r.json()),
   reports: id => request(`/api/batches/${id}/reports`).then(r => r.json()),
