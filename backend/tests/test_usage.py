@@ -58,3 +58,15 @@ def test_invalid_bill_skipped(tmp_path):
     with TestClient(app) as c:
         res = _run(c, s, ["Other_bill.pdf"]).json()["results"][0]
         assert res["status"] == "Invalid" and "download" not in res
+
+
+def test_usage_bill_on_upload_page_is_redirected(tmp_path):
+    s = make(tmp_path)
+    with TestClient(app) as c:
+        b = c.post("/api/batches").json()
+        files = [("files", (n, (s / n).read_bytes())) for n in ["SLT_0033118626_Jun.pdf", "Dialog_B698359_Jun.pdf"]]
+        b = c.post(f"/api/batches/{b['id']}/files", files=files).json()
+        b = c.post(f"/api/batches/{b['id']}/process").json()
+        for f in b["files"]:
+            assert f["status"] == "Usage Allocation Bill" and not f["errors"]
+        assert b["summary"]["failed"] == 0

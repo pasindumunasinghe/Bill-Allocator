@@ -13,5 +13,6 @@ export const STATUS = {
   INVALID: 'Validation Failed',
   IGNORED: 'Ignored - Contract Not In Scope',
   UNSUPPORTED: 'Unsupported Format',
+  USAGE: 'Usage Allocation Bill',
 }
 export const FAILED = [STATUS.READ, STATUS.REVIEW, STATUS.INVALID, STATUS.UNSUPPORTED]

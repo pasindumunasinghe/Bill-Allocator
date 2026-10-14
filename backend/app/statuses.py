@@ -6,5 +6,6 @@ NEEDS_REVIEW = "Needs Review"
 VALIDATION_FAILED = "Validation Failed"
 IGNORED = "Ignored - Contract Not In Scope"
 UNSUPPORTED = "Unsupported Format"
+USAGE_BILL = "Usage Allocation Bill"
 
 FAILED_STATUSES = {READ_FAILURE, NEEDS_REVIEW, VALIDATION_FAILED, UNSUPPORTED}

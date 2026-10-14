@@ -5,7 +5,7 @@ import { api } from '../api.js'
 const tone = {
   [STATUS.OK]: 'ok', [STATUS.QUEUED]: 'neutral', [STATUS.PROCESSING]: 'info',
   [STATUS.READ]: 'bad', [STATUS.INVALID]: 'bad', [STATUS.UNSUPPORTED]: 'bad',
-  [STATUS.REVIEW]: 'warn', [STATUS.IGNORED]: 'muted',
+  [STATUS.REVIEW]: 'warn', [STATUS.USAGE]: 'info', [STATUS.IGNORED]: 'muted',
 }
 
 export function StatusBadge({ status }) {

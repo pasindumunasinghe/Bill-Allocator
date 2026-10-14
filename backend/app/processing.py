@@ -8,6 +8,7 @@ from .config import classify
 from .db import BillFile, now
 from .extraction import ReadFailure, UnsupportedFormat, extract_text
 from .parser import parse_bill
+from .usage.bill import read_bill_value
 from .rules import contract_from_filename, evaluate
 
 
@@ -44,6 +45,17 @@ def process_file(f: BillFile) -> BillFile:
     f.read_attempts = result.attempts
     f.extraction_method = result.method
     f.text_excerpt = result.text[:20000]
+    # Dialog B698359 / SLT 003 311 8626 bills are allocated by usage on the Usage Allocation page.
+    usage_bill = read_bill_value(f.file_name, result.text)
+    if usage_bill.bill_type:
+        f.status, f.contract_number, f.contract_source = S.USAGE_BILL, usage_bill.reference, "document"
+        f.bill_period = usage_bill.bill_period
+        f.notes = [f"{usage_bill.bill_type} bill: process it on the Usage Allocation page with the usage Excel"]
+        if usage_bill.value is not None:
+            f.notes.append(f"Bill value to allocate: {usage_bill.value:,.2f}")
+        f.errors = usage_bill.errors
+        return f
+
     bill = parse_bill(result.text)
     out = evaluate(bill)
 

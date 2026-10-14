@@ -13,7 +13,7 @@ export default function Upload(ctx) {
   const files = batch?.files || []
   const { rows, props } = useFilter(files)
   const queued = files.filter(f => f.status === STATUS.QUEUED).length
-  const retryable = files.filter(f => f.status !== STATUS.OK && f.status !== STATUS.IGNORED).length
+  const retryable = files.filter(f => f.status !== STATUS.OK && f.status !== STATUS.IGNORED && f.status !== STATUS.USAGE).length
   const processedAny = files.some(f => f.processed_at)
 
   const upload = async list => {
@@ -65,6 +65,10 @@ export default function Upload(ctx) {
         </div>
       )}
 
+      {files.some(f => f.status === STATUS.USAGE) && (
+        <div className="alert warn">SLT / Dialog B698359 bills are allocated by usage.
+          <button className="link" onClick={() => ctx.go('usage')}>Open Usage Allocation</button></div>
+      )}
       <Panel title="Upload queue" actions={<Filters {...props} />}>
         {rows.length ? (
           <div className="table-wrap"><table>

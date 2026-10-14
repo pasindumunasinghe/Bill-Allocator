@@ -11,7 +11,7 @@ export function useProcessing({ batch, setBatch, setError }) {
     if (!b) return
     let queue = b.files.filter(f => f.status === STATUS.QUEUED)
     // Nothing queued: re-process every file that did not succeed (e.g. after a parser fix)
-    if (!queue.length) queue = b.files.filter(f => f.status !== STATUS.OK && f.status !== STATUS.IGNORED)
+    if (!queue.length) queue = b.files.filter(f => f.status !== STATUS.OK && f.status !== STATUS.IGNORED && f.status !== STATUS.USAGE)
     if (!queue.length) { setError('All files in this batch are already processed successfully.'); return }
     setError('')
     setProgress({ done: 0, total: queue.length, current: queue[0].file_name })
