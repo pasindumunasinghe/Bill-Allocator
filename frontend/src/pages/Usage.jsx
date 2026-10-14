@@ -1,43 +1,66 @@
 import React from 'react'
 import { api } from '../api.js'
 import { Empty, Panel } from '../components/ui.jsx'
-import { money } from '../format.js'
+import { dateTime, money } from '../format.js'
 
 const gb = v => (v == null ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 4 }))
 
-function Picker({ label, hint, accept, file, setFile }) {
+function StoredFile({ kind, label, hint, accept, meta, busy, onUpload, onRemove, error, children }) {
   const ref = React.useRef()
   return (
-    <div className="picker">
-      <div><b>{label}</b><div className="dim">{hint}</div></div>
-      <div className="picker-files">{file ? <span className="ftype">{file.name}</span> : <span className="dim">No file</span>}</div>
-      <input ref={ref} type="file" hidden accept={accept} onChange={e => { setFile(e.target.files[0] || null); e.target.value = '' }} />
-      {file && <button className="btn sm ghost" onClick={() => setFile(null)}>Remove</button>}
-      <button className="btn sm" onClick={() => ref.current.click()}>Choose</button>
+    <div className="stored">
+      <div className="picker">
+        <div><b>{label}</b><div className="dim">{hint}</div></div>
+        <div className="picker-files">
+          {busy ? <span className="badge badge-info">Uploading…</span>
+            : meta ? <span className="badge badge-ok" title={meta.stored_at || ''}>✓ Stored{meta.stored_at ? ` · ${dateTime(meta.stored_at)}` : ''}</span>
+              : <span className="dim">Not uploaded</span>}
+        </div>
+        <input ref={ref} type="file" hidden accept={accept} onChange={e => { const f = e.target.files[0]; e.target.value = ''; if (f) onUpload(kind, f) }} />
+        {meta && <button className="btn sm ghost" disabled={busy} onClick={() => onRemove(kind)}>Remove</button>}
+        <button className="btn sm" disabled={busy} onClick={() => ref.current.click()}>{meta ? 'Replace' : 'Upload'}</button>
+      </div>
+      {error && <div className="pad-box err">Not stored: {error}</div>}
+      {meta && <div className="stored-name"><span className="ftype">{meta.file_name}</span></div>}
+      {meta?.preview && children(meta.preview)}
     </div>
   )
 }
 
-function BillPreview({ expected, bill }) {
-  if (!bill) return null
-  const ok = bill.bill_type === expected && !bill.errors?.length
+function BillPreview({ bill }) {
   return (
-    <div className={`bill-preview ${ok ? '' : 'bad'}`}>
-      <div className="bp-head">
-        <b>{expected === 'SLT' ? 'SLT' : 'Dialog'} bill preview</b>
-        <span className={`badge ${ok ? 'badge-ok' : 'badge-bad'}`}>{ok ? 'Valid' : 'Check bill'}</span>
-      </div>
-      {bill.bill_type && bill.bill_type !== expected && <div className="err">This is a {bill.bill_type} bill — upload it in the {bill.bill_type === 'SLT' ? 'SLT' : 'Dialog'} box.</div>}
-      {(bill.errors || []).map(e => <div key={e} className="err">{e}</div>)}
-      {bill.bill_type && (
-        <table className="mini"><tbody>
-          <tr><td>{bill.bill_type === 'SLT' ? 'Account Number' : 'Contract Number'}</td><td className="num">{bill.reference}</td></tr>
-          <tr><td>Bill Period</td><td className="num">{bill.bill_period || 'Not found'}</td></tr>
-          {bill.components.map(([k, v]) => <tr key={k}><td>{k}</td><td className="num">{money(v)}</td></tr>)}
-          <tr className="strong"><td>Bill Value (to allocate)</td><td className="num">{money(bill.bill_value)}</td></tr>
-          <tr><td className="dim">VAT (excluded)</td><td className="num dim">{money(bill.vat)}</td></tr>
-        </tbody></table>
-      )}
+    <table className="mini preview"><tbody>
+      <tr><td>{bill.bill_type === 'SLT' ? 'Account Number' : 'Contract Number'}</td><td className="num">{bill.reference}</td></tr>
+      <tr><td>Bill Period</td><td className="num">{bill.bill_period || 'Not found'}</td></tr>
+      {bill.components.map(([k, v]) => <tr key={k}><td>{k}</td><td className="num">{money(v)}</td></tr>)}
+      <tr className="strong"><td>Bill Value (to allocate)</td><td className="num">{money(bill.bill_value)}</td></tr>
+      <tr><td className="dim">VAT (excluded)</td><td className="num dim">{money(bill.vat)}</td></tr>
+      {(bill.errors || []).map(e => <tr key={e}><td colSpan={2} className="err">{e}</td></tr>)}
+    </tbody></table>
+  )
+}
+
+function UsagePreview({ p }) {
+  return (
+    <div className="preview">
+      <div className="dim">{p.users} users · {gb(p.total_gb)} GB total</div>
+      <div className="table-wrap"><table className="mini">
+        <thead><tr><th>Sheet</th><th>Type</th><th>Usage column</th><th className="num">Users</th><th className="num">GB</th><th className="num">Excluded / duplicates</th></tr></thead>
+        <tbody>{p.sheets.map(s => <tr key={s.name}><td>{s.name}</td><td>{s.type}</td><td>{s.usage_col} ({s.unit})</td><td className="num">{s.users}</td><td className="num">{gb(s.total_gb)}</td><td className="num">{s.excluded_rows} / {s.duplicates_removed}</td></tr>)}</tbody>
+      </table></div>
+      <div className="dim">Top users: {p.sample.map(([u, v]) => `${u} (${gb(v)} GB)`).join(', ')}</div>
+    </div>
+  )
+}
+
+function PeoplePreview({ p }) {
+  return (
+    <div className="preview">
+      <div className="dim">{p.employees} employees · {p.companies.length} companies</div>
+      <div className="table-wrap"><table className="mini">
+        <thead><tr><th>Username key</th><th>Emp No</th><th>Emp Name</th><th>Company</th><th>Dimension</th></tr></thead>
+        <tbody>{p.sample.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j}>{c}</td>)}</tr>)}</tbody>
+      </table></div>
     </div>
   )
 }
@@ -93,56 +116,52 @@ export function ResultPreview({ r, setError }) {
 }
 
 export default function Usage({ setError }) {
-  const [slt, setSlt] = React.useState(null)
-  const [dialog, setDialog] = React.useState(null)
-  const [sltInfo, setSltInfo] = React.useState(null)
-  const [dialogInfo, setDialogInfo] = React.useState(null)
-  const [usage, setUsage] = React.useState(null)
-  const [master, setMaster] = React.useState(null)
-  const [map, setMap] = React.useState(null)
-  const [save, setSave] = React.useState(true)
-  const [ref, setRef] = React.useState({})
+  const [inputs, setInputs] = React.useState({})
+  const [busyKind, setBusyKind] = React.useState(null)
+  const [errors, setErrors] = React.useState({})
   const [busy, setBusy] = React.useState(false)
   const [result, setResult] = React.useState(null)
-  React.useEffect(() => { api.usageReference().then(setRef).catch(() => {}) }, [result])
+  React.useEffect(() => { api.usageInputs().then(setInputs).catch(e => setError(e.message)) }, [])
 
-  const pickBill = (setFile, setInfo) => async file => {
-    setFile(file); setInfo(null); setResult(null)
-    if (file) setInfo(await api.previewBill(file).catch(e => ({ errors: [e.message], components: [] })))
+  const upload = async (kind, file) => {
+    setBusyKind(kind); setErrors(e => ({ ...e, [kind]: null })); setResult(null)
+    try {
+      const meta = await api.usageStore(kind, file)
+      setInputs(i => ({ ...i, [kind]: meta }))
+    } catch (e) { setErrors(er => ({ ...er, [kind]: e.message })) }
+    setBusyKind(null)
   }
-  const bills = [slt, dialog].filter(Boolean)
-  const wrongBox = (sltInfo && sltInfo.bill_type && sltInfo.bill_type !== 'SLT') || (dialogInfo && dialogInfo.bill_type && dialogInfo.bill_type !== 'DIALOG')
-
+  const remove = async kind => { setInputs(await api.usageRemove(kind)); setResult(null) }
   const run = async () => {
     setBusy(true); setError(''); setResult(null)
-    try { setResult(await api.usageAllocate(bills, usage, master, map, save)) } catch (e) { setError(e.message) }
+    try { setResult(await api.usageAllocateStored()) } catch (e) { setError(e.message) }
     setBusy(false)
   }
+  const common = { busy: false, onUpload: upload, onRemove: remove }
+  const f = kind => ({ ...common, kind, meta: inputs[kind], busy: busyKind === kind, error: errors[kind] })
+  const billCount = ['slt', 'dialog'].filter(k => inputs[k]).length
+  const ready = billCount && inputs.usage && inputs.master
 
   return (
     <>
-      <p className="caption">Split the SLT (account 003 311 8626) and Dialog (contract B698359) bills across employees by data usage. Upload one or both bills; each gives its own Excel file.</p>
+      <p className="caption">Split the SLT (account 003 311 8626) and Dialog (contract B698359) bills across employees by data usage. Each file is saved on the server as soon as you upload it. Each bill gives its own Excel file.</p>
       <div className="grid two">
         <Panel title="SLT bill">
-          <Picker label="SLT bill PDF" hint="Account 003 311 8626" accept=".pdf" file={slt} setFile={pickBill(setSlt, setSltInfo)} />
-          <BillPreview expected="SLT" bill={sltInfo} />
+          <StoredFile {...f('slt')} label="SLT bill PDF" hint="Account 003 311 8626" accept=".pdf">{p => <BillPreview bill={p} />}</StoredFile>
         </Panel>
         <Panel title="Dialog bill">
-          <Picker label="Dialog bill PDF" hint="Contract B698359" accept=".pdf" file={dialog} setFile={pickBill(setDialog, setDialogInfo)} />
-          <BillPreview expected="DIALOG" bill={dialogInfo} />
+          <StoredFile {...f('dialog')} label="Dialog bill PDF" hint="Contract B698359" accept=".pdf">{p => <BillPreview bill={p} />}</StoredFile>
         </Panel>
       </div>
       <Panel title="Usage and employee data">
-        <div className="pickers">
-          <Picker label="Usage Excel" hint="Sheets with 'Source User' or 'username' + usage columns" accept=".xlsx" file={usage} setFile={setUsage} />
-          <Picker label="Master data (Emp.xlsx)" hint={ref.master ? `Optional — saved default: ${ref.master}` : 'Required (no saved default yet)'} accept=".xlsx" file={master} setFile={setMaster} />
-          <Picker label="map.xlsx" hint={ref.map ? `Optional — saved default: ${ref.map}` : 'Optional'} accept=".xlsx" file={map} setFile={setMap} />
-        </div>
+        <StoredFile {...f('usage')} label="Usage Excel" hint="Sheets with 'Source User' or 'username' + usage columns" accept=".xlsx">{p => <UsagePreview p={p} />}</StoredFile>
+        <StoredFile {...f('master')} label="Master data (Emp.xlsx)" hint="Saved as the default for future runs" accept=".xlsx">{p => <PeoplePreview p={p} />}</StoredFile>
+        <StoredFile {...f('map')} label="map.xlsx" hint="Optional · saved as the default" accept=".xlsx">{p => <PeoplePreview p={p} />}</StoredFile>
         <div className="toolbar pad">
-          <label className="dim"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} /> Save uploaded Master / map as defaults</label>
+          <span className="dim">{ready ? 'All required files are stored.' : 'Needed: at least one bill, the usage Excel and the Master data.'}</span>
           <span className="spacer" />
-          <button className="btn primary" disabled={busy || !bills.length || wrongBox || !usage || (!master && !ref.master)} onClick={run}>
-            {busy ? 'Processing…' : `Allocate ${bills.length === 2 ? 'both bills' : 'bill'}`}
+          <button className="btn primary" disabled={busy || !ready || !!busyKind} onClick={run}>
+            {busy ? 'Processing…' : `Allocate ${billCount === 2 ? 'both bills' : 'bill'}`}
           </button>
         </div>
       </Panel>

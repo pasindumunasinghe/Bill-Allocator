@@ -31,6 +31,13 @@ export const api = {
     const fd = new FormData(); fd.append('bill', file)
     return request('/api/usage/preview-bill', { method: 'POST', body: fd }).then(r => r.json())
   },
+  usageInputs: () => request('/api/usage/inputs').then(r => r.json()),
+  usageStore: (kind, file) => {
+    const fd = new FormData(); fd.append('file', file)
+    return request(`/api/usage/inputs/${kind}`, { method: 'POST', body: fd }).then(r => r.json())
+  },
+  usageRemove: kind => request(`/api/usage/inputs/${kind}`, { method: 'DELETE' }).then(r => r.json()),
+  usageAllocateStored: () => request('/api/usage/allocate-stored', { method: 'POST' }).then(r => r.json()),
   usageLatest: () => request('/api/usage/latest').then(r => r.json()),
   usageAllocate: (bills, usage, master, map, save) => {
     const fd = new FormData()

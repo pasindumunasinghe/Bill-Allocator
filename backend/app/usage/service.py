@@ -21,7 +21,8 @@ MAX_BILLS = 2
 
 def reference_files() -> dict:
     os.makedirs(REFERENCE_DIR, exist_ok=True)
-    master = sorted(glob.glob(os.path.join(REFERENCE_DIR, "master*.xlsx")) + glob.glob(os.path.join(REFERENCE_DIR, "Emp*.xlsx")))
+    master = sorted(glob.glob(os.path.join(REFERENCE_DIR, "master.xlsx")) + glob.glob(os.path.join(REFERENCE_DIR, "master*.xlsx"))
+                    + glob.glob(os.path.join(REFERENCE_DIR, "Emp*.xlsx")))
     mp = os.path.join(REFERENCE_DIR, "map.xlsx")
     return {"master": master[0] if master else None, "map": mp if os.path.exists(mp) else None}
 

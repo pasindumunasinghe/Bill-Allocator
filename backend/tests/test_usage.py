@@ -87,3 +87,22 @@ def test_latest_by_bill(tmp_path):
         _run(c, s, ["SLT_0033118626_Jun.pdf", "Dialog_B698359_Jun.pdf"])
         latest = c.get("/api/usage/latest").json()
         assert latest["SLT"]["bill_value"] == "140704.92" and latest["DIALOG"]["preview"]["summary"]["allocated"] == "318228.86"
+
+
+def test_inputs_are_stored_and_previewed(tmp_path):
+    s = make(tmp_path)
+    up = lambda c, kind, f: c.post(f"/api/usage/inputs/{kind}", files={"file": (f, (s / f).read_bytes())})  # noqa: E731
+    with TestClient(app) as c:
+        assert up(c, "slt", "Dialog_B698359_Jun.pdf").status_code == 422  # wrong box, not stored
+        m = up(c, "slt", "SLT_0033118626_Jun.pdf").json()
+        assert m["stored_at"] and m["preview"]["bill_value"] == "140704.92"
+        u = up(c, "usage", "usage.xlsx").json()["preview"]
+        assert len(u["sheets"]) == 3 and u["users"] >= 4
+        assert up(c, "master", "Emp.xlsx").json()["preview"]["employees"] == 3
+        up(c, "map", "map.xlsx")
+        cur = c.get("/api/usage/inputs").json()
+        assert cur["slt"]["file_name"] == "SLT_0033118626_Jun.pdf" and cur["dialog"] is None
+        r = c.post("/api/usage/allocate-stored").json()["results"]
+        assert len(r) == 1 and r[0]["allocated"] == "140704.92"
+        c.delete("/api/usage/inputs/slt")
+        assert c.get("/api/usage/inputs").json()["slt"] is None

@@ -16,6 +16,7 @@ from .config import CORS_ORIGINS, GROUP_A_FILENAME, GROUP_B_FILENAME, MAX_UPLOAD
 from .db import Batch, BillFile, SessionLocal, init_db
 from .excel import build_group_a, build_group_b
 from .final_report import build_final_report
+from .usage import inputs as usage_inputs_mod
 from .usage import service as usage_service
 from .usage.usage import UsageError
 import tempfile
@@ -227,6 +228,47 @@ def download_final_report(db: Session = Depends(get_db)):
 def usage_reference():
     ref = usage_service.reference_files()
     return {k: (os.path.basename(v) if v else None) for k, v in ref.items()}
+
+
+@app.get("/api/usage/inputs")
+def usage_inputs():
+    """Files currently stored for the SLT and Dialog page, with their previews."""
+    return usage_inputs_mod.current()
+
+
+@app.post("/api/usage/inputs/{kind}")
+async def usage_store_input(kind: str, file: UploadFile = File(...)):
+    name = os.path.basename(file.filename or kind)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "upload" + os.path.splitext(name)[1].lower())
+        with open(path, "wb") as fh:
+            fh.write(await file.read())
+        try:
+            return usage_inputs_mod.store(kind, name, path)
+        except UsageError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+
+@app.delete("/api/usage/inputs/{kind}")
+def usage_remove_input(kind: str):
+    if kind not in usage_inputs_mod.KINDS:
+        raise HTTPException(404, "Unknown input type")
+    usage_inputs_mod.remove(kind)
+    return usage_inputs_mod.current()
+
+
+@app.post("/api/usage/allocate-stored")
+def usage_allocate_stored():
+    """Run the allocation with the files already stored on the server."""
+    cur = usage_inputs_mod.current()
+    bills = [(cur[k]["file_name"], usage_inputs_mod.stored_path(k)) for k in ("slt", "dialog") if cur[k]]
+    if not cur["usage"]:
+        raise HTTPException(422, "Upload the usage Excel first")
+    try:
+        return usage_service.run(bills, usage_inputs_mod.stored_path("usage"),
+                                 usage_inputs_mod.stored_path("master"), usage_inputs_mod.stored_path("map"))
+    except UsageError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/api/usage/preview-bill")

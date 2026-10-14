@@ -108,3 +108,8 @@ tr.strong td { font-weight: 700; color: var(--navy); }
 .tabs.inner { margin: 12px 18px; }
 .pad-box { padding: 14px 18px; }
 .result .panel-head h2 { font-size: 15px; }
+.stored { border-bottom: 1px solid var(--line); }
+.stored .picker { border-bottom: 0; }
+.stored-name { padding: 0 18px 8px; }
+.preview { padding: 0 18px 14px; display: grid; gap: 6px; }
+table.mini th { padding: 6px 8px; font-size: 11px; } table.mini td { padding: 6px 8px; }
