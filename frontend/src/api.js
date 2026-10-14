@@ -24,15 +24,18 @@ export const api = {
   processFile: fileId => request(`/api/files/${fileId}/process`, { method: 'POST' }).then(r => r.json()),
   clearQueue: id => request(`/api/batches/${id}/queue`, { method: 'DELETE' }).then(r => r.json()),
   reports: id => request(`/api/batches/${id}/reports`).then(r => r.json()),
-  download: async (id, group) => {
-    const res = await request(`/api/batches/${id}/reports/group-${group}`)
-    const cd = res.headers.get('content-disposition') || ''
-    const name = (cd.match(/filename="(.+?)"/) || [])[1] || `report-${group}.xlsx`
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = Object.assign(document.createElement('a'), { href: url, download: name })
-    document.body.appendChild(a); a.click(); a.remove()
-    URL.revokeObjectURL(url)
-    return name
-  },
+  download: (id, group) => saveFrom(`/api/batches/${id}/reports/group-${group}`, `report-${group}.xlsx`),
+  downloadFinal: () => saveFrom('/api/reports/final', 'Final_Report_WiFi.xlsx'),
+}
+
+async function saveFrom(path, fallback) {
+  const res = await request(path)
+  const cd = res.headers.get('content-disposition') || ''
+  const name = (cd.match(/filename="(.+?)"/) || [])[1] || fallback
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = Object.assign(document.createElement('a'), { href: url, download: name })
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+  return name
 }

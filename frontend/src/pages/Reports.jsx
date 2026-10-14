@@ -32,6 +32,12 @@ export default function Reports({ batch, setError, go }) {
         {card('group_a', 'a', 'Group A · contract 74745984 · split equally across 4 companies', ['Allocation Summary', 'Calculation Summary', 'Validation'])}
         {card('group_b', 'b', 'Group B · fixed company & cost center mapping', ['Bill Summary', 'Cost Center Summary', 'Failed Records'])}
       </div>
+      <div className="card report" style={{ marginTop: 18 }}>
+        <div className="report-icon">XLSX</div>
+        <h3>Final_Report_WiFi_&lt;MONTH&gt;.xlsx</h3>
+        <p className="dim">Cumulative monthly report across all batches: one sheet per contract with a block per bill month, plus a Company Summary by month.</p>
+        <button className="btn primary" disabled={pending} onClick={() => api.downloadFinal().catch(e => setError(e.message))}>Download Final Report</button>
+      </div>
     </>
   )
 }

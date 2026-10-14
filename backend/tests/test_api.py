@@ -49,3 +49,20 @@ def test_end_to_end_mixed_batch(tmp_path):
         failed = [r[0] for r in wb["Failed Records"].iter_rows(min_row=2, values_only=True)]
         assert set(failed) == {"GroupB_74746314_missing_VAT.pdf", "GroupB_DBN0235456_payable_only.pdf",
                                "GroupB_ES00008395_corrupt.pdf"}
+
+
+def test_final_report(tmp_path):
+    samples = make(tmp_path / "s2")
+    with TestClient(app) as c:
+        b = c.post("/api/batches").json()
+        files = [("files", (p.name, p.read_bytes())) for p in sorted(samples.iterdir())]
+        b = c.post(f"/api/batches/{b['id']}/files", files=files).json()
+        c.post(f"/api/batches/{b['id']}/process")
+        r = c.get("/api/reports/final")
+        assert r.status_code == 200 and "Final_Report_WiFi_SEP.xlsx" in r.headers["content-disposition"]
+        wb = openpyxl.load_workbook(io.BytesIO(r.content))
+        assert wb.sheetnames[-1] == "Company Summary" and "74745984" in wb.sheetnames
+        a = [r for r in wb["74745984"].iter_rows(values_only=True) if r and r[0]]
+        assert any(r[4] == "August 2026" for r in a) and any(r[4] == "September 2026" for r in a)
+        summ = {r[0]: r for r in wb["Company Summary"].iter_rows(min_row=2, values_only=True) if r and r[0]}
+        assert "OCP Product Company" in summ

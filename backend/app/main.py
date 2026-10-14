@@ -14,6 +14,7 @@ from . import statuses as S
 from .config import CORS_ORIGINS, GROUP_A_FILENAME, GROUP_B_FILENAME, MAX_UPLOAD_MB, SUPPORTED_EXTENSIONS, UPLOAD_DIR
 from .db import Batch, BillFile, SessionLocal, init_db
 from .excel import build_group_a, build_group_b
+from .final_report import build_final_report
 from .extraction import ocr_available
 from .processing import process_file, summarize
 from .rules import contract_from_filename
@@ -195,3 +196,13 @@ def download_group_b(batch_id: str, db: Session = Depends(get_db)):
         raise HTTPException(404, "No Group B bills in this batch")
     return Response(build_group_b(b.files), media_type=XLSX,
                     headers={"Content-Disposition": f'attachment; filename="{GROUP_B_FILENAME}"'})
+
+
+@app.get("/api/reports/final")
+def download_final_report(db: Session = Depends(get_db)):
+    """Cumulative report across all batches (every month processed so far)."""
+    files = db.scalars(select(BillFile).where(BillFile.status == S.PROCESSED)).all()
+    if not files:
+        raise HTTPException(404, "No successfully processed bills yet")
+    content, name = build_final_report(files)
+    return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{name}"'})
