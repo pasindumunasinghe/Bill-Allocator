@@ -69,8 +69,13 @@ def process_file(f: BillFile) -> BillFile:
         f.total_without_vat = out.total_without_vat
         f.allocation_per_company = out.allocation_per_company
         f.rounding_adjustment = out.rounding_adjustment
-        f.allocations = [{"dimension": a.dimension, "company": a.company, "amount": str(a.amount)}
+        f.allocations = [{"dimension": a.dimension, "company": a.company, "amount": str(a.amount),
+                          "subscription": a.subscription,
+                          "charges": None if a.charges is None else str(a.charges),
+                          "levies": None if a.levies is None else str(a.levies)}
                          for a in out.allocations] or None
+        if out.allocations and out.allocations[0].subscription:
+            f.notes.append("Allocated per subscription from the itemised charges table")
     return f
 
 

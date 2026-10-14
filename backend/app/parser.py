@@ -19,7 +19,7 @@ AMOUNT = r"\(?-?\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\)?"
 CURRENCY = r"(?:[A-Z]{3}|Rs\.?|Rs|Dhs?\.?|[$€£₹])"
 AMOUNT_AFTER_LABEL = rf"\s*(?:\((?:{CURRENCY})\)\s*)?[:=\-]?\s*(?:{CURRENCY}\.?\s*)?(?P<amt>{AMOUNT})(?!\s*%)(?![\d/])"
 
-TOTAL_LABEL = re.compile(r"Total\s*Charges?\s*for\s*(?:the\s*|this\s*)?Bill(?:ing)?\s*Period", re.I)
+TOTAL_LABEL = re.compile(r"Total\s*Charges?\s*for\s*(?:the\s*|this\s*)?Bill(?:ing)?(?:\s*Period)?(?![A-Za-z])", re.I)
 VAT_LABEL = re.compile(
     r"(?<![A-Za-z])(?:Total\s+)?VAT(?:\s+Amount)?(?:\s*\(?\s*@?\s*\d+(?:\.\d+)?\s*%\s*\)?)?", re.I
 )
@@ -34,6 +34,8 @@ SUBSCRIPTION_LABEL = re.compile(
 BILL_PERIOD_LABEL = re.compile(r"(?<!for\s)(?<!for the\s)\bBill(?:ing)?\s+Period\b(?!\s*\))", re.I)
 BILL_MONTH_LABEL = re.compile(r"\bBill(?:ing)?\s+Month\s*[:\-]?\s*(?P<v>[A-Za-z]{3,9}[\s\-/]+\d{4}|\d{1,2}[/\-]\d{4})", re.I)
 COST_CENTER_LABEL = re.compile(r"Cost\s*Cent(?:er|re)\s*[:\-]?\s*(?P<v>[A-Z0-9]+)", re.I)
+
+SUB_ROW = re.compile(r"^(?P<sub>\d{8,10})(?P<amts>(?:\s+-?(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2}){5,})\s*$")
 
 MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], start=1)}
@@ -55,6 +57,9 @@ class ParsedBill:
     total_charges: Decimal | None = None
     vat: Decimal | None = None
     cost_center_in_document: str | None = None
+    # per-subscription rows from an itemised charges table: (subscription, [amounts...]); last = row total,
+    # second-last = VAT, third-last = government taxes & levies
+    subscription_rows: list[tuple[str, list[Decimal]]] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
@@ -211,6 +216,12 @@ def parse_bill(text: str) -> ParsedBill:
         totals = _amount_for_label(joined, TOTAL_LABEL)
     bill.total_charges = _single(totals, "Total Charges for Bill Period", bill)
     bill.vat = _single(_resolve_vat_breakdown(_amount_for_label(lines, VAT_LABEL, VAT_REJECT), bill), "VAT", bill)
+
+    for ln in lines:
+        m = SUB_ROW.match(ln)
+        if m:
+            amounts = [parse_amount(a) for a in m.group("amts").split()]
+            bill.subscription_rows.append((m.group("sub"), amounts))
 
     ccs = [m.group("v").upper() for ln in lines for m in COST_CENTER_LABEL.finditer(ln)]
     if ccs:

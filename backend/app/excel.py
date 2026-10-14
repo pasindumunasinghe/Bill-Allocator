@@ -57,7 +57,7 @@ def build_group_a(files) -> bytes:
     rows = []
     for f in ok:
         for a in f.allocations:
-            rows.append([f.file_name, f.contract_number, f.subscription_number, f.bill_period, f.bill_month,
+            rows.append([f.file_name, f.contract_number, a.get("subscription") or f.subscription_number, f.bill_period, f.bill_month,
                          a["company"], a["dimension"], Decimal(a["amount"])])
     _sheet(ws, ["Source File Name", "Contract Number", "Subscription Number", "Bill Period", "Bill Month",
                 "Company", "Dimension", "Allocated Amount"], rows, {7})
@@ -70,7 +70,9 @@ def build_group_a(files) -> bytes:
             rows.append([f"Source: {f.file_name} ({f.bill_month})", None])
         rows += [["Total Charges for Bill Period", _d(f.total_charges)], ["VAT", _d(f.vat)],
                  ["Total Without VAT", _d(f.total_without_vat)],
-                 ["Allocation Per Company", _d(f.allocation_per_company).quantize(Decimal("0.0001"))]]
+                 ["Allocation Per Company", _d(f.allocation_per_company).quantize(Decimal("0.0001"))]
+                 if f.allocation_per_company is not None else
+                 ["Allocation Per Company", "Per subscription (itemised on bill)"]]
         adj = _d(f.rounding_adjustment) or Decimal(0)
         if adj:
             rows.append([f"Rounding adjustment applied to {f.allocations[-1]['company']}", adj])

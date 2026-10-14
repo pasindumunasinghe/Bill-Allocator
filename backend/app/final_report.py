@@ -86,11 +86,16 @@ def build_final_report(files) -> tuple[bytes, str]:
                 ws.append([])
                 continue
             if contract == GROUP_A_CONTRACT:
-                _header(ws, A_HEAD)
+                itemised = bool(f.allocations[0].get("subscription"))
+                _header(ws, A_HEAD + (["Tax", "Full Amount"] if itemised else []))
                 for a in f.allocations:
                     amt = Decimal(a["amount"])
-                    ws.append([f.file_name, f.contract_number, f.subscription_number, f.bill_period, label,
-                               a["company"], a["dimension"], amt])
+                    if itemised:  # Allocated Amount = services, Tax = levies, Full Amount = excl. VAT
+                        ws.append([f.file_name, f.contract_number, a["subscription"], f.bill_period, label,
+                                   a["company"], a["dimension"], Decimal(a["charges"]), Decimal(a["levies"]), amt])
+                    else:
+                        ws.append([f.file_name, f.contract_number, f.subscription_number, f.bill_period, label,
+                                   a["company"], a["dimension"], amt])
                     add(a["company"], month, amt)
             else:
                 _header(ws, B_HEAD)

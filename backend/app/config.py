@@ -14,6 +14,15 @@ GROUP_A_ALLOCATIONS = [
     ("1100500100", "OCP Manufacturing Company"),
 ]
 
+# Group A subscription -> dimension. When the bill itemises charges per subscription, each company
+# is allocated its own subscription's charges (excl. VAT) instead of an equal quarter.
+GROUP_A_SUBSCRIPTIONS = {
+    "117044720": "1100190000",  # OCP Innovation Company
+    "117142338": "1100700660",  # OCP Product Company
+    "117144865": "1100130020",  # OCP Admin Company
+    "117592072": "1100500100",  # OCP Manufacturing Company
+}
+
 # Group B: contract -> (related company, cost center)
 GROUP_B_MAPPING = {
     "72263692": ("OCP Product Company", "1100700610"),

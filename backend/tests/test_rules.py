@@ -96,3 +96,30 @@ def test_total_label_variants():
         assert b.total_charges == Decimal("525.00"), label
     b, _ = run(text=BASE.format(c="72263692", t="1", v="25.00").replace("Total Charges for Bill Period AED 1", "Total Charges for\nBill Period 525.00"))
     assert b.total_charges == Decimal("525.00")
+
+
+DIALOG = """SUBSCRIPTION NO: 117142338 CONTRACT NO: 74745984 BILL PERIOD: 08/01/2026 - 08/31/2026
+Previous Due Amount 42,466.99
+VAT Amount (Total Value of Supply @ VAT Rate) 1,301.73
+Total Charges for Bill 8,533.73
+Total Due 51,000.72
+117142338 1,190.00 0.00 0.00 0.00 0.00 55.45 224.18 1,469.63
+117144865 1,190.00 0.00 0.00 0.00 0.00 55.46 224.17 1,469.63
+117592072 1,690.00 0.00 0.00 0.00 0.00 78.75 318.37 2,087.12
+117044720 2,840.00 0.00 0.00 0.00 0.00 132.34 535.01 3,507.35
+Total VAT 1,301.73
+"""
+
+
+def test_dialog_group_a_per_subscription():
+    b, o = run(text=DIALOG)
+    assert b.total_charges == Decimal("8533.73") and b.vat == Decimal("1301.73")
+    assert o.status == S.PROCESSED
+    got = {a.company: (a.charges, a.levies, a.amount) for a in o.allocations}
+    assert got["OCP Innovation Company"] == (Decimal("2840.00"), Decimal("132.34"), Decimal("2972.34"))
+    assert sum(a.amount for a in o.allocations) == Decimal("7232.00")
+
+
+def test_unknown_subscription_needs_review():
+    b, o = run(text=DIALOG.replace("117044720", "999999999"))
+    assert o.status == S.NEEDS_REVIEW

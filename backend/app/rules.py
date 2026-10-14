@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
 from . import statuses as S
-from .config import ALL_CONTRACTS, GROUP_A, GROUP_A_ALLOCATIONS, GROUP_B, GROUP_B_MAPPING, classify
+from .config import ALL_CONTRACTS, GROUP_A, GROUP_A_ALLOCATIONS, GROUP_A_SUBSCRIPTIONS, GROUP_B, GROUP_B_MAPPING, classify
 from .parser import ParsedBill
 
 CENT = Decimal("0.01")
@@ -21,6 +21,9 @@ class Allocation:
     dimension: str
     company: str
     amount: Decimal
+    subscription: str | None = None
+    charges: Decimal | None = None  # services (excl. taxes & levies)
+    levies: Decimal | None = None   # government taxes & levies
 
 
 @dataclass
@@ -55,6 +58,27 @@ def allocate_group_a(total_without_vat: Decimal) -> tuple[Decimal, list[Allocati
     return exact_share, allocs, adjustment
 
 
+def allocate_by_subscription(bill: ParsedBill, total_without_vat: Decimal) -> tuple[list[Allocation], list[str]]:
+    """Allocate each company its own subscription's charges excl. VAT (row total - row VAT)."""
+    rows = {s: a for s, a in bill.subscription_rows}
+    unknown = sorted(set(rows) - set(GROUP_A_SUBSCRIPTIONS))
+    missing = sorted(set(GROUP_A_SUBSCRIPTIONS) - set(rows))
+    if unknown or missing:
+        return [], [f"Itemised subscriptions do not match the Group A mapping (unknown: {', '.join(unknown) or '-'}; "
+                    f"missing: {', '.join(missing) or '-'})"]
+    company = dict(GROUP_A_ALLOCATIONS)
+    allocs = []
+    for sub, dim in GROUP_A_SUBSCRIPTIONS.items():
+        a = rows[sub]
+        amount = a[-1] - a[-2]
+        levies = a[-3]
+        allocs.append(Allocation(dim, company[dim], amount, sub, amount - levies, levies))
+    if sum(x.amount for x in allocs) != total_without_vat:
+        return [], [f"Subscription charges ({sum(x.amount for x in allocs)}) do not reconcile to Total Without VAT "
+                    f"({total_without_vat})"]
+    return allocs, []
+
+
 def evaluate(bill: ParsedBill) -> Outcome:
     contract = bill.contract_number
     group = classify(contract)
@@ -75,7 +99,13 @@ def evaluate(bill: ParsedBill) -> Outcome:
 
     out.total_without_vat = bill.total_charges - bill.vat
     if group == GROUP_A:
-        out.allocation_per_company, out.allocations, out.rounding_adjustment = allocate_group_a(out.total_without_vat)
+        if bill.subscription_rows:
+            out.allocations, errs = allocate_by_subscription(bill, out.total_without_vat)
+            if errs:
+                out.status, out.errors = S.NEEDS_REVIEW, errs
+                return out
+        else:
+            out.allocation_per_company, out.allocations, out.rounding_adjustment = allocate_group_a(out.total_without_vat)
 
     problems = validate(bill, out)
     if problems:
