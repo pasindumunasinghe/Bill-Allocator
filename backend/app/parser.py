@@ -106,9 +106,23 @@ def _single(values: list, name: str, bill: ParsedBill):
     return distinct[0]
 
 
-def parse_date(raw: str) -> date | None:
+DMY = ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%d/%m/%y", "%d-%m-%y")
+MDY = ("%m/%d/%Y", "%m-%d-%Y", "%m.%d.%Y", "%Y-%m-%d", "%m/%d/%y", "%m-%d-%y")
+
+
+def parse_period(start: str, end: str) -> tuple[date | None, date | None]:
+    """Parse both dates with the SAME convention (day-first, else month-first).
+    A convention is accepted only if both dates parse and start <= end."""
+    for fmts in (DMY, MDY):
+        a, b = parse_date(start, fmts), parse_date(end, fmts)
+        if a and b and a <= b:
+            return a, b
+    return None, None
+
+
+def parse_date(raw: str, numeric_formats=DMY) -> date | None:
     raw = raw.strip().replace(",", " ")
-    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%d/%m/%y", "%d-%m-%y"):
+    for fmt in numeric_formats:
         try:
             return datetime.strptime(raw, fmt).date()
         except ValueError:
@@ -160,8 +174,8 @@ def parse_bill(text: str) -> ParsedBill:
     end_date = None
     if period:
         bill.bill_period = f"{period[0]} - {period[1]}"
-        end_date = parse_date(period[1])
-        if end_date is None or parse_date(period[0]) is None:
+        start_date, end_date = parse_period(period[0], period[1])
+        if end_date is None:
             bill.issues.append(f"Bill Period dates could not be parsed: {bill.bill_period}")
 
     months = [m.group("v").strip() for ln in lines for m in BILL_MONTH_LABEL.finditer(ln)]

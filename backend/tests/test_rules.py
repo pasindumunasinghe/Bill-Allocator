@@ -71,3 +71,9 @@ def test_group_b_cost_center_conflict():
 def test_allocation_exact_share():
     share, allocs, adj = allocate_group_a(Decimal("100.00"))
     assert share == Decimal("25") and adj == 0 and all(a.amount == Decimal("25.00") for a in allocs)
+
+
+def test_us_month_first_bill_period():
+    b, o = run(c="72263692", t="525.00", v="25.00",
+               text=BASE.format(c="72263692", t="525.00", v="25.00").replace("01/09/2026 - 30/09/2026", "08/01/2026 - 08/31/2026"))
+    assert b.bill_month == "August 2026" and o.status == S.PROCESSED
