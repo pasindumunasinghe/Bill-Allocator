@@ -16,8 +16,8 @@ from decimal import Decimal, InvalidOperation
 from .config import ALL_CONTRACTS
 
 AMOUNT = r"\(?-?\s?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\)?"
-CURRENCY = r"(?:AED|USD|EUR|GBP|SAR|QAR|OMR|BHD|KWD|Dhs?\.?)"
-AMOUNT_AFTER_LABEL = rf"\s*[:=\-]?\s*(?:{CURRENCY}\s*)?(?P<amt>{AMOUNT})(?!\s*%)(?![\d/])"
+CURRENCY = r"(?:[A-Z]{3}|Rs\.?|Rs|Dhs?\.?|[$€£₹])"
+AMOUNT_AFTER_LABEL = rf"\s*(?:\((?:{CURRENCY})\)\s*)?[:=\-]?\s*(?:{CURRENCY}\.?\s*)?(?P<amt>{AMOUNT})(?!\s*%)(?![\d/])"
 
 TOTAL_LABEL = re.compile(r"Total\s+Charges\s+for\s+(?:the\s+)?Bill(?:ing)?\s+Period", re.I)
 VAT_LABEL = re.compile(

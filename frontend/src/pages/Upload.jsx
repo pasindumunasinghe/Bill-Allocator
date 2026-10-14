@@ -20,9 +20,11 @@ export default function Upload(ctx) {
     setUploading(true); setError('')
     try {
       const b = batch || await newBatch()
-      setBatch(await api.upload(b.id, Array.from(list)))
-    } catch (e) { setError(`Upload failed: ${e.message}`) }
-    setUploading(false)
+      const updated = await api.upload(b.id, Array.from(list))
+      setBatch(updated)
+      setUploading(false)
+      await process(updated) // calculate immediately after upload
+    } catch (e) { setError(`Upload failed: ${e.message}`); setUploading(false) }
     if (input.current) input.current.value = ''
   }
 
@@ -43,7 +45,7 @@ export default function Upload(ctx) {
 
       <div className="toolbar">
         <button className="btn primary" disabled={uploading || busy} onClick={() => input.current.click()}>{uploading ? 'Uploading…' : 'Upload Bills'}</button>
-        <button className="btn navy" disabled={!queued || busy} onClick={process}>Process Bills{queued ? ` (${queued})` : ''}</button>
+        <button className="btn navy" disabled={!queued || busy} onClick={() => process()}>Process Bills{queued ? ` (${queued})` : ''}</button>
         <button className="btn" disabled={!queued || busy} onClick={clear}>Clear Queue</button>
         <button className="btn" disabled={!processedAny || busy || queued > 0} onClick={() => downloadAll(batch, setError)}
           title={queued ? 'Process queued files first' : ''}>Download Reports</button>
