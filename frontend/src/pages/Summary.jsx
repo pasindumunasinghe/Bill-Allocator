@@ -1,17 +1,39 @@
 import React from 'react'
 import { Empty, Filters, Panel, useFilter } from '../components/ui.jsx'
-import { STATUS, money } from '../format.js'
+import { STATUS, dateTime, money } from '../format.js'
+import { api } from '../api.js'
+import { ResultPreview } from './Usage.jsx'
 
-export default function Summary({ batch }) {
+function SltDialog({ setError, go }) {
+  const [latest, setLatest] = React.useState(null)
+  React.useEffect(() => { api.usageLatest().then(setLatest).catch(e => setError(e.message)) }, [])
+  if (!latest) return <Panel title="SLT and Dialog"><Empty>Loading…</Empty></Panel>
+  return (
+    <>
+      <p className="caption">Latest allocation for each bill, from the SLT and Dialog page. <button className="link" onClick={() => go('usage')}>Run a new allocation</button></p>
+      {['SLT', 'DIALOG'].map(t => latest[t] ? (
+        <div key={t} style={{ marginBottom: 20 }}>
+          <div className="dim" style={{ marginBottom: 6 }}>Processed {dateTime(latest[t].created_at)}</div>
+          <ResultPreview r={latest[t]} setError={setError} />
+        </div>
+      ) : (
+        <Panel key={t} title={t === 'SLT' ? 'SLT' : 'Dialog'}><Empty>No {t === 'SLT' ? 'SLT' : 'Dialog'} bill allocated yet.</Empty></Panel>
+      ))}
+    </>
+  )
+}
+
+export default function Summary({ batch, setError, go }) {
   const [tab, setTab] = React.useState('A')
   const ok = (batch?.files || []).filter(f => f.status === STATUS.OK && f.group === tab)
   const { rows, props } = useFilter(ok)
   const tabs = (
     <div className="tabs" role="tablist">
-      {['A', 'B'].map(g => <button key={g} role="tab" aria-selected={tab === g} className={tab === g ? 'active' : ''} onClick={() => setTab(g)}>Group {g}</button>)}
+      {[['A', 'Group A'], ['B', 'Group B'], ['SD', 'SLT & Dialog']].map(([g, l]) => <button key={g} role="tab" aria-selected={tab === g} className={tab === g ? 'active' : ''} onClick={() => setTab(g)}>{l}</button>)}
     </div>
   )
-  if (!batch) return <Panel title="Bill Summary"><Empty>No batch selected.</Empty></Panel>
+  if (tab === 'SD') return <>{tabs}<SltDialog setError={setError} go={go} /></>
+  if (!batch) return <>{tabs}<Panel title="Bill Summary"><Empty>No batch selected.</Empty></Panel></>
 
   const ccTotals = {}
   for (const f of ok) {

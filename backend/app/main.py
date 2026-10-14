@@ -272,6 +272,11 @@ async def usage_allocate(bills: list[UploadFile] = File(...), usage: UploadFile 
             raise HTTPException(422, str(exc)) from exc
 
 
+@app.get("/api/usage/latest")
+def usage_latest():
+    return usage_service.latest_by_bill()
+
+
 @app.get("/api/usage/results/{run_id}/{file_name}")
 def usage_result(run_id: str, file_name: str):
     path = usage_service.result_path(run_id, file_name)

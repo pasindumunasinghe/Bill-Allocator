@@ -31,6 +31,7 @@ export const api = {
     const fd = new FormData(); fd.append('bill', file)
     return request('/api/usage/preview-bill', { method: 'POST', body: fd }).then(r => r.json())
   },
+  usageLatest: () => request('/api/usage/latest').then(r => r.json()),
   usageAllocate: (bills, usage, master, map, save) => {
     const fd = new FormData()
     for (const b of bills) fd.append('bills', b)

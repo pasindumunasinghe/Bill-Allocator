@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import glob
+import json
+from datetime import datetime, timezone
 import os
 import shutil
 import uuid
@@ -88,7 +90,28 @@ def run(bills: list[tuple[str, str]], usage_path: str, master_path: str | None, 
     types = [r.get("bill_type") for r in results if r.get("bill_type")]
     if len(types) != len(set(types)):
         warnings.append("Two bills of the same type were uploaded; each was processed separately")
-    return {"run_id": run_id, "warnings": warnings, "results": results}
+    out = {"run_id": run_id, "created_at": datetime.now(timezone.utc).isoformat(), "warnings": warnings,
+           "results": results}
+    with open(os.path.join(out_dir, "result.json"), "w") as fh:
+        json.dump(out, fh)
+    return out
+
+
+def latest_by_bill() -> dict:
+    """Most recent successful allocation per bill type (SLT / DIALOG), newest run first."""
+    latest: dict[str, dict] = {}
+    runs = []
+    for p in glob.glob(os.path.join(RESULTS_DIR, "*", "result.json")):
+        try:
+            with open(p) as fh:
+                runs.append(json.load(fh))
+        except (OSError, ValueError):
+            continue
+    for run in sorted(runs, key=lambda r: r.get("created_at", ""), reverse=True):
+        for r in run["results"]:
+            if r.get("status") == "Processed Successfully" and r.get("bill_type") not in latest:
+                latest[r["bill_type"]] = {**r, "created_at": run["created_at"]}
+    return latest
 
 
 def bill_dict(bv) -> dict:

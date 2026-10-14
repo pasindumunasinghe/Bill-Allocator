@@ -42,7 +42,7 @@ function BillPreview({ expected, bill }) {
   )
 }
 
-function ResultPreview({ r, setError }) {
+export function ResultPreview({ r, setError }) {
   const [tab, setTab] = React.useState('bill')
   const p = r.preview
   return (
