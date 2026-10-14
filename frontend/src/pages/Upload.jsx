@@ -13,6 +13,7 @@ export default function Upload(ctx) {
   const files = batch?.files || []
   const { rows, props } = useFilter(files)
   const queued = files.filter(f => f.status === STATUS.QUEUED).length
+  const retryable = files.filter(f => f.status !== STATUS.OK && f.status !== STATUS.IGNORED).length
   const processedAny = files.some(f => f.processed_at)
 
   const upload = async list => {
@@ -29,7 +30,8 @@ export default function Upload(ctx) {
   }
 
   const clear = async () => {
-    try { setBatch(await api.clearQueue(batch.id)) } catch (e) { setError(e.message) }
+    // Drop unprocessed files, then start a fresh batch. Processed results stay in Processing History.
+    try { await api.clearQueue(batch.id); await newBatch() } catch (e) { setError(e.message) }
   }
 
   return (
@@ -45,8 +47,9 @@ export default function Upload(ctx) {
 
       <div className="toolbar">
         <button className="btn primary" disabled={uploading || busy} onClick={() => input.current.click()}>{uploading ? 'Uploading…' : 'Upload Bills'}</button>
-        <button className="btn navy" disabled={!queued || busy} onClick={() => process()}>Process Bills{queued ? ` (${queued})` : ''}</button>
-        <button className="btn" disabled={!queued || busy} onClick={clear}>Clear Queue</button>
+        <button className="btn navy" disabled={!retryable || busy} onClick={() => process()}
+          title={queued ? '' : 'Re-process files that failed or need review'}>Process Bills{retryable ? ` (${retryable})` : ''}</button>
+        <button className="btn" disabled={!files.length || busy || uploading} onClick={clear}>Clear Queue</button>
         <button className="btn" disabled={!processedAny || busy || queued > 0} onClick={() => downloadAll(batch, setError)}
           title={queued ? 'Process queued files first' : ''}>Download Reports</button>
         <span className="spacer" />
