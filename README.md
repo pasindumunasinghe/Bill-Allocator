@@ -102,6 +102,18 @@ Sample bills in `samples/` (upload them all at once to test a mixed-group batch)
 | `Invalid_contract_99999999.pdf` | Ignored (not in either list) |
 | `notes.txt` | Unsupported Format |
 
+## Usage Allocation (Dialog B698359 / SLT 003 311 8626)
+Page **Usage Allocation**: upload 1–2 bill PDFs, the usage Excel, and optionally Emp.xlsx (master) and map.xlsx. Each bill gives its own Excel file with these sheets: Allocation Summary, Unmapped Users, Bill Summary, All Company Summary, Company Wise Summary.
+
+- **Bill value.** Dialog: subscription 994620243 TOTAL (Subscription Charges summary) + Government Taxes & Levies. SLT: Total charges for the period − VAT-18%. VAT is reported but not allocated. A missing or ambiguous value fails that bill.
+- **Usage sheets** are detected by their columns. A `Source User` column is summed per user (`OREL\kamal` → `kamal`). A `username` column keeps the first occurrence per user only. `total` and `others` rows are excluded. The unit is read from the header (MB, GB, …) and converted to GB.
+- **Matching:** Master data first (email prefix / username, exact then unique partial), then map.xlsx. Users found in neither are listed in Unmapped Users and get no cost.
+- **All Company users:** their usage is pooled and shared equally among the other mapped users.
+- **Cost:** Unit cost = Bill value ÷ total final usage. Costs are rounded to 2 dp, and the remainder goes to the highest-usage user, so the total always equals the bill value.
+- **Default reference files:** saved Master/map files live in `REFERENCE_DIR` (default `backend/reference/`). Tick "Save as defaults" to store them.
+
+Sample inputs: `python tests/make_usage_samples.py ../samples/usage`
+
 ## API
 `POST /api/batches` · `GET /api/batches` · `GET /api/batches/{id}` · `POST /api/batches/{id}/files` (multipart `files`) · `POST /api/files/{id}/process` · `POST /api/batches/{id}/process` · `DELETE /api/batches/{id}/queue` · `GET /api/batches/{id}/reports` · `GET /api/batches/{id}/reports/group-a` · `GET /api/batches/{id}/reports/group-b` · `GET /api/health`
 

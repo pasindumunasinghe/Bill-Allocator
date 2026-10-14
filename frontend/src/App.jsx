@@ -6,6 +6,7 @@ import History from './pages/History.jsx'
 import Summary from './pages/Summary.jsx'
 import Failed from './pages/Failed.jsx'
 import Reports from './pages/Reports.jsx'
+import Usage from './pages/Usage.jsx'
 
 const NAV = [
   ['dashboard', 'Dashboard', '▦'],
@@ -14,6 +15,7 @@ const NAV = [
   ['summary', 'Bill Summary', '≣'],
   ['failed', 'Failed Records', '⚠'],
   ['reports', 'Download Reports', '⤓'],
+  ['usage', 'Usage Allocation', '◔'],
 ]
 
 function load(key) { try { return localStorage.getItem(key) } catch { return null } }
@@ -48,7 +50,7 @@ export default function App() {
     go: setPage,
     health,
   }
-  const Page = { dashboard: Dashboard, upload: Upload, history: History, summary: Summary, failed: Failed, reports: Reports }[page] || Dashboard
+  const Page = { dashboard: Dashboard, upload: Upload, history: History, summary: Summary, failed: Failed, reports: Reports, usage: Usage }[page] || Dashboard
 
   return (
     <div className="shell">

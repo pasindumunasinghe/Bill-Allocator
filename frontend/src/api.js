@@ -26,6 +26,16 @@ export const api = {
   clearQueue: id => request(`/api/batches/${id}/queue`, { method: 'DELETE' }).then(r => r.json()),
   reports: id => request(`/api/batches/${id}/reports`).then(r => r.json()),
   download: (id, group) => saveFrom(`/api/batches/${id}/reports/group-${group}`, `report-${group}.xlsx`),
+  usageReference: () => request('/api/usage/reference').then(r => r.json()),
+  usageAllocate: (bills, usage, master, map, save) => {
+    const fd = new FormData()
+    for (const b of bills) fd.append('bills', b)
+    fd.append('usage', usage)
+    if (master) fd.append('master', master)
+    if (map) fd.append('map_file', map)
+    return request(`/api/usage/allocate?save_reference=${save ? 'true' : 'false'}`, { method: 'POST', body: fd }).then(r => r.json())
+  },
+  downloadUrl: (url, name) => saveFrom(url, name),
   downloadFinal: () => saveFrom('/api/reports/final', 'Final_Report_WiFi.xlsx'),
 }
 

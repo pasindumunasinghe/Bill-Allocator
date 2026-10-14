@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -15,6 +16,9 @@ from .config import CORS_ORIGINS, GROUP_A_FILENAME, GROUP_B_FILENAME, MAX_UPLOAD
 from .db import Batch, BillFile, SessionLocal, init_db
 from .excel import build_group_a, build_group_b
 from .final_report import build_final_report
+from .usage import service as usage_service
+from .usage.usage import UsageError
+import tempfile
 from .extraction import ocr_available
 from .processing import process_file, summarize
 from .rules import contract_from_filename
@@ -215,3 +219,50 @@ def download_final_report(db: Session = Depends(get_db)):
         raise HTTPException(404, "No successfully processed bills yet")
     content, name = build_final_report(files)
     return Response(content, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+# ---------------- Usage-based allocation (Dialog B698359 / SLT 003 311 8626) ----------------
+
+@app.get("/api/usage/reference")
+def usage_reference():
+    ref = usage_service.reference_files()
+    return {k: (os.path.basename(v) if v else None) for k, v in ref.items()}
+
+
+@app.post("/api/usage/allocate")
+async def usage_allocate(bills: list[UploadFile] = File(...), usage: UploadFile = File(...),
+                         master: UploadFile | None = File(None), map_file: UploadFile | None = File(None),
+                         save_reference: bool = False):
+    if len(bills) > usage_service.MAX_BILLS:
+        raise HTTPException(400, "Only maximum 2 bills allowed")
+    with tempfile.TemporaryDirectory() as tmp:
+        async def store(up: UploadFile, allowed: tuple[str, ...]) -> str:
+            name = os.path.basename(up.filename or "file")
+            if not name.lower().endswith(allowed):
+                raise HTTPException(400, f"{name}: expected {' / '.join(allowed)}")
+            path = os.path.join(tmp, uuid.uuid4().hex + "_" + re.sub(r"[^A-Za-z0-9._-]", "_", name))
+            with open(path, "wb") as fh:
+                fh.write(await up.read())
+            return path
+        bill_paths = [(os.path.basename(b.filename or "bill.pdf"), await store(b, (".pdf",))) for b in bills]
+        usage_path = await store(usage, (".xlsx",))
+        master_path = await store(master, (".xlsx",)) if master and master.filename else None
+        map_path = await store(map_file, (".xlsx",)) if map_file and map_file.filename else None
+        if save_reference:
+            if master_path:
+                usage_service.save_reference("master", master_path)
+            if map_path:
+                usage_service.save_reference("map", map_path)
+        try:
+            return usage_service.run(bill_paths, usage_path, master_path, map_path)
+        except UsageError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/api/usage/results/{run_id}/{file_name}")
+def usage_result(run_id: str, file_name: str):
+    path = usage_service.result_path(run_id, file_name)
+    if not path:
+        raise HTTPException(404, "Result not found")
+    with open(path, "rb") as fh:
+        return Response(fh.read(), media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{file_name}"'})
