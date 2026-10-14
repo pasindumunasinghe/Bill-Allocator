@@ -27,6 +27,10 @@ export const api = {
   reports: id => request(`/api/batches/${id}/reports`).then(r => r.json()),
   download: (id, group) => saveFrom(`/api/batches/${id}/reports/group-${group}`, `report-${group}.xlsx`),
   usageReference: () => request('/api/usage/reference').then(r => r.json()),
+  previewBill: file => {
+    const fd = new FormData(); fd.append('bill', file)
+    return request('/api/usage/preview-bill', { method: 'POST', body: fd }).then(r => r.json())
+  },
   usageAllocate: (bills, usage, master, map, save) => {
     const fd = new FormData()
     for (const b of bills) fd.append('bills', b)

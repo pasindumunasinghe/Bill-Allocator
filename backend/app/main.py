@@ -229,6 +229,19 @@ def usage_reference():
     return {k: (os.path.basename(v) if v else None) for k, v in ref.items()}
 
 
+@app.post("/api/usage/preview-bill")
+async def usage_preview_bill(bill: UploadFile = File(...)):
+    """Read one SLT / Dialog bill and return its bill value breakdown (no allocation)."""
+    name = os.path.basename(bill.filename or "bill.pdf")
+    if not name.lower().endswith(".pdf"):
+        raise HTTPException(400, "Bill must be a PDF")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "bill.pdf")
+        with open(path, "wb") as fh:
+            fh.write(await bill.read())
+        return usage_service.preview_bill(name, path)
+
+
 @app.post("/api/usage/allocate")
 async def usage_allocate(bills: list[UploadFile] = File(...), usage: UploadFile = File(...),
                          master: UploadFile | None = File(None), map_file: UploadFile | None = File(None),

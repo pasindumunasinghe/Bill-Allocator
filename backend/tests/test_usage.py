@@ -70,3 +70,12 @@ def test_usage_bill_on_upload_page_is_redirected(tmp_path):
         for f in b["files"]:
             assert f["status"] == "Usage Allocation Bill" and not f["errors"]
         assert b["summary"]["failed"] == 0
+
+
+def test_preview_bill_and_allocation_preview(tmp_path):
+    s = make(tmp_path)
+    with TestClient(app) as c:
+        p = c.post("/api/usage/preview-bill", files={"bill": ("d.pdf", (s / "Dialog_B698359_Jun.pdf").read_bytes())}).json()
+        assert p["bill_type"] == "DIALOG" and p["bill_value"] == "318228.86" and len(p["components"]) == 2
+        r = _run(c, s, ["SLT_0033118626_Jun.pdf"]).json()["results"][0]["preview"]
+        assert r["summary"]["allocated"] == "140704.92" and r["unmapped"][0][0] == "ghost"

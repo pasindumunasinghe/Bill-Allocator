@@ -67,7 +67,7 @@ export default function Upload(ctx) {
 
       {files.some(f => f.status === STATUS.USAGE) && (
         <div className="alert warn">SLT / Dialog B698359 bills are allocated by usage.
-          <button className="link" onClick={() => ctx.go('usage')}>Open Usage Allocation</button></div>
+          <button className="link" onClick={() => ctx.go('usage')}>Open SLT and Dialog</button></div>
       )}
       <Panel title="Upload queue" actions={<Filters {...props} />}>
         {rows.length ? (

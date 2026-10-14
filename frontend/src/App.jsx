@@ -15,7 +15,7 @@ const NAV = [
   ['summary', 'Bill Summary', '≣'],
   ['failed', 'Failed Records', '⚠'],
   ['reports', 'Download Reports', '⤓'],
-  ['usage', 'Usage Allocation', '◔'],
+  ['usage', 'SLT and Dialog', '◔'],
 ]
 
 function load(key) { try { return localStorage.getItem(key) } catch { return null } }

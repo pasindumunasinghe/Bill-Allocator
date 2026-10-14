@@ -83,11 +83,50 @@ def run(bills: list[tuple[str, str]], usage_path: str, master_path: str | None, 
         item.update(status="Processed Successfully", file_name=fname, download=f"/api/usage/results/{run_id}/{fname}",
                     allocated=str(alloc.allocated), mapped_users=len(alloc.users), unmapped_users=len(alloc.unmapped),
                     grand_total_usage=str(round(alloc.grand_total, 4)))
+        item["preview"] = preview(bv, alloc)
         results.append(item)
     types = [r.get("bill_type") for r in results if r.get("bill_type")]
     if len(types) != len(set(types)):
         warnings.append("Two bills of the same type were uploaded; each was processed separately")
     return {"run_id": run_id, "warnings": warnings, "results": results}
+
+
+def bill_dict(bv) -> dict:
+    return {"bill_file": bv.file_name, "bill_type": bv.bill_type, "reference": bv.reference,
+            "bill_period": bv.bill_period, "components": [[k, str(v)] for k, v in bv.components],
+            "vat": None if bv.vat is None else str(bv.vat), "bill_value": None if bv.value is None else str(bv.value),
+            "errors": bv.errors}
+
+
+def preview_bill(name: str, path: str) -> dict:
+    try:
+        return bill_dict(read_bill_value(name, extract_text(path).text))
+    except (ReadFailure, UnsupportedFormat) as exc:
+        return {"bill_file": name, "bill_type": None, "errors": [str(exc)], "components": []}
+
+
+def preview(bv, alloc) -> dict:
+    """On-screen preview of the generated workbook."""
+    s = lambda d: str(round(d, 4))  # noqa: E731
+    companies: dict[str, list] = {}
+    for u in alloc.users:
+        if not u.all_company:
+            c = companies.setdefault(u.person.company or "(blank)", [0, 0, 0])
+            c[0] += 1
+            c[1] += u.final
+            c[2] += u.cost
+    return {
+        "bill": bill_dict(bv),
+        "summary": {"grand_total_usage": s(alloc.grand_total), "unit_cost": str(round(alloc.unit_cost, 6)),
+                    "allocated": str(alloc.allocated), "difference": str(bv.value - alloc.allocated),
+                    "rounding_adjustment": str(alloc.rounding_adjustment), "all_company_pool": s(alloc.pool),
+                    "recipients": alloc.recipients,
+                    "unmapped_usage": s(sum((u.total for u in alloc.unmapped), 0))},
+        "companies": [[k, v[0], s(v[1]), str(v[2])] for k, v in sorted(companies.items())],
+        "users": [[u.raw, u.person.emp_no, u.person.emp_name, u.person.company, u.person.dimension,
+                   s(u.final), str(u.cost)] for u in alloc.users],
+        "unmapped": [[u.raw, s(u.total)] for u in alloc.unmapped],
+    }
 
 
 def result_path(run_id: str, fname: str) -> str | None:

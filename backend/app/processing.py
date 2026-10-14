@@ -50,7 +50,7 @@ def process_file(f: BillFile) -> BillFile:
     if usage_bill.bill_type:
         f.status, f.contract_number, f.contract_source = S.USAGE_BILL, usage_bill.reference, "document"
         f.bill_period = usage_bill.bill_period
-        f.notes = [f"{usage_bill.bill_type} bill: process it on the Usage Allocation page with the usage Excel"]
+        f.notes = [f"{usage_bill.bill_type} bill: process it on the SLT and Dialog page with the usage Excel"]
         if usage_bill.value is not None:
             f.notes.append(f"Bill value to allocate: {usage_bill.value:,.2f}")
         f.errors = usage_bill.errors
