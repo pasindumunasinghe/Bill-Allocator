@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: telecom_bills
+      POSTGRES_USER: telecom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    ports: ["5432:5432"]
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://telecom:${POSTGRES_PASSWORD:-change-me}@db:5432/telecom_bills
+      UPLOAD_DIR: /data/uploads
+      CORS_ORIGINS: http://localhost:5173
+    volumes: [uploads:/data/uploads]
+    ports: ["8000:8000"]
+    depends_on: [db]
+volumes:
+  pgdata:
+  uploads:
